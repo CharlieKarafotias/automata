@@ -54,7 +54,7 @@ impl<'a> Nfa<'a> {
                 new_branches.extend(self.check_branch(state, char));
             }
             branches = new_branches;
-            println!("Branches: {branches:?}");
+            println!("Branches after processing char: {char}: {branches:?}");
         }
         branches.iter().any(|x| self.final_states.contains(x))
     }
@@ -78,8 +78,6 @@ fn main() {
 
     let input = "1011";
     println!("The input {} is accepted? {}", input, nfa.accept(input));
-    // "p" "q"
-    // "p", "[]"
 }
 
 mod tests {
@@ -125,5 +123,39 @@ mod tests {
         assert!(!nfa.accept("ba"));
         assert!(!nfa.accept("baa"));
         assert!(!nfa.accept("babaaa"));
+    }
+
+    #[test]
+    fn test_nfa_end_in_011_with_preceeding_011_or_end_in_101_with_preceeding_100() {
+        let nfa = Nfa {
+            states: vec![
+                "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12",
+            ],
+            input_symbols: vec!["0", "1"],
+            transitions: vec![
+                ("q0", "0", vec!["q0", "q1"]),
+                ("q0", "1", vec!["q0", "q7"]),
+                ("q1", "1", vec!["q2"]),
+                ("q2", "1", vec!["q3"]),
+                ("q3", "0", vec!["q3", "q4"]),
+                ("q3", "1", vec!["q3"]),
+                ("q4", "1", vec!["q5"]),
+                ("q5", "0", vec!["q6"]),
+                ("q7", "0", vec!["q8"]),
+                ("q8", "0", vec!["q9"]),
+                ("q9", "0", vec!["q9"]),
+                ("q9", "1", vec!["q9", "q10"]),
+                ("q10", "0", vec!["q11"]),
+                ("q11", "1", vec!["q12"]),
+            ],
+            initial_state: "q0",
+            final_states: vec!["q6", "q12"],
+        };
+        assert!(nfa.accept("011010"));
+        assert!(nfa.accept("100101"));
+        assert!(nfa.accept("111111011000001010"));
+        assert!(nfa.accept("1111110010101010100000101"));
+        assert!(!nfa.accept("010001010101010101010101000"));
+        assert!(!nfa.accept("01000110101010101010101010001"));
     }
 }

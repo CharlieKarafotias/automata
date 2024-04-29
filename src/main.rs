@@ -30,21 +30,22 @@ impl<'a> Nfa<'a> {
         println!("{self:?}");
     }
 
-    fn check_branch(&self, state: &str, input: char) -> Vec<&str> {
-        let mut states = vec![state];
-        states.extend(self.add_epsilons(state));
-        // TODO: update this so that it checks if char is in any of the states
-        let transition = self
-            .transitions
-            .iter()
-            .find(|&x| x.0 == state && x.1 == input.to_string());
-        if let Some(transition) = transition {
-            transition.2.clone()
-        } else {
-            println!("Transition not found for state: {state}, input: {input}");
-            vec![]
-        }
-    }
+    // TODO: replaced by possible_transitions; REMOVE
+    // fn check_branch(&self, state: &str, input: char) -> Vec<&str> {
+    //     let mut states = vec![state];
+    //     states.extend(self.add_epsilons(state));
+    //     // TODO: update this so that it checks if char is in any of the states
+    //     let transition = self
+    //         .transitions
+    //         .iter()
+    //         .find(|&x| x.0 == state && x.1 == input.to_string());
+    //     if let Some(transition) = transition {
+    //         transition.2.clone()
+    //     } else {
+    //         println!("Transition not found for state: {state}, input: {input}");
+    //         vec![]
+    //     }
+    // }
 
     fn all_epsilons(&self) -> Vec<(&str, &str, Vec<&str>)> {
         self.transitions
@@ -70,6 +71,34 @@ impl<'a> Nfa<'a> {
         res
     }
 
+    fn possible_transitions(&self, state: &str, input: &str) -> Vec<&str> {
+        self.transitions
+            .iter()
+            .filter(|x| x.0 == state && x.1 == input)
+            .flat_map(|x| x.2.clone())
+            .collect()
+    }
+
+    fn e_closure<'b>(&'b self, state: &'b str) -> Vec<&str> {
+        // Add initial state to return
+        let mut closure = vec![state];
+        let mut prev_len = 0;
+        let mut new_len = closure.len();
+
+        while prev_len != new_len {
+            prev_len = new_len;
+            let found: Vec<&str> = closure
+                .iter()
+                .flat_map(|state| self.possible_transitions(state, ""))
+                .collect();
+            closure.extend(found);
+            closure.sort();
+            closure.dedup();
+            new_len = closure.len();
+        }
+        closure
+    }
+
     fn accept(&self, input: &str) -> bool {
         // input to chars
         let mut chars: VecDeque<char> = input.chars().collect();
@@ -87,7 +116,8 @@ impl<'a> Nfa<'a> {
             }
             branches.extend(epsilons);
             for state in branches {
-                new_branches.extend(self.check_branch(state, char));
+                // TODO: clean this up, string slice maybe?
+                new_branches.extend(self.possible_transitions(state, char.to_string().as_str()));
             }
             branches = new_branches;
         }
@@ -97,25 +127,19 @@ impl<'a> Nfa<'a> {
 
 fn main() {
     let nfa = Nfa {
-        states: vec!["1", "2", "3", "4", "5", "6", "7", "8"],
-        input_symbols: vec!["a", "b", "c"],
-        transitions: vec![
-            ("1", "", vec!["2", "5"]),
-            ("2", "a", vec!["3"]),
-            ("3", "c", vec!["4"]),
-            ("5", "", vec!["6", "7"]),
-            ("6", "a", vec!["8"]),
-            ("7", "b", vec!["8"]),
-            ("8", "", vec!["1"]),
-        ],
-        initial_state: "1",
-        final_states: vec!["4"],
+        states: vec!["s0", "s1", "s2"],
+        input_symbols: vec!["0", "1"],
+        transitions: vec![("s0", "", vec!["s1"]), ("s1", "", vec!["s2"])],
+        initial_state: "s0",
+        final_states: vec!["s2"],
     };
 
     nfa.print();
 
-    let input = "aac";
-    println!("The input {} is accepted? {}", input, nfa.accept(input));
+    println!("Possible transitions from s2 are {:?}", nfa.e_closure("s2"));
+
+    // let input = "aac";
+    // println!("The input {} is accepted? {}", input, nfa.accept(input));
 }
 
 mod tests {

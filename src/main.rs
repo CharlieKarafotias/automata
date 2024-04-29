@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 #[derive(Debug)]
 struct Nfa<'a> {
     states: Vec<&'a str>,
@@ -28,47 +26,6 @@ impl<'a> Nfa<'a> {
 
     fn print(&self) {
         println!("{self:?}");
-    }
-
-    // TODO: replaced by possible_transitions; REMOVE
-    // fn check_branch(&self, state: &str, input: char) -> Vec<&str> {
-    //     let mut states = vec![state];
-    //     states.extend(self.add_epsilons(state));
-    //     // TODO: update this so that it checks if char is in any of the states
-    //     let transition = self
-    //         .transitions
-    //         .iter()
-    //         .find(|&x| x.0 == state && x.1 == input.to_string());
-    //     if let Some(transition) = transition {
-    //         transition.2.clone()
-    //     } else {
-    //         println!("Transition not found for state: {state}, input: {input}");
-    //         vec![]
-    //     }
-    // }
-
-    fn all_epsilons(&self) -> Vec<(&str, &str, Vec<&str>)> {
-        self.transitions
-            .iter()
-            .filter(|&x| x.1.is_empty())
-            .map(|x| (x.0, x.1, x.2.clone()))
-            .collect()
-    }
-
-    fn add_epsilons(&self, state: &str) -> Vec<&str> {
-        let epsilon_transitions: Vec<(&str, &str, Vec<&str>)> = self.all_epsilons();
-        let mut res: Vec<&str> = vec![];
-        let found = epsilon_transitions.iter().find(|x| x.0 == state);
-        if let Some((_, _, found_states)) = found {
-            res.extend(found_states.clone());
-            // TODO: Consider sets in future, no need to reprocess if state points back to state already checked
-            res.extend(
-                found_states
-                    .iter()
-                    .flat_map(|state| self.add_epsilons(state)),
-            );
-        }
-        res
     }
 
     fn possible_transitions(&self, state: &str, input: &str) -> Vec<&str> {
@@ -100,25 +57,29 @@ impl<'a> Nfa<'a> {
     }
 
     fn accept(&self, input: &str) -> bool {
-        // input to chars
-        let mut chars: VecDeque<char> = input.chars().collect();
         let mut branches: Vec<&str> = vec![self.initial_state];
-        // epsilons as well to initial branches
-        branches.extend(self.add_epsilons(self.initial_state));
+        branches.extend(self.e_closure(self.initial_state));
+        branches.sort();
+        branches.dedup();
 
-        while !chars.is_empty() {
-            let char = chars.pop_front().unwrap();
-            let mut new_branches: Vec<&str> = vec![];
+        for i in 0..input.len() {
             let mut epsilons: Vec<&str> = vec![];
-            for state in &branches {
-                // epsilons as well to branches
-                epsilons.extend(self.add_epsilons(state));
-            }
+            branches
+                .iter()
+                .for_each(|state| epsilons.extend(self.e_closure(state)));
+
             branches.extend(epsilons);
-            for state in branches {
-                // TODO: clean this up, string slice maybe?
-                new_branches.extend(self.possible_transitions(state, char.to_string().as_str()));
-            }
+            branches.sort();
+            branches.dedup();
+
+            let mut new_branches: Vec<&str> = vec![];
+            let char_slice: &str = input.get(i..i + 1).unwrap();
+            branches.iter().for_each(|state| {
+                new_branches.extend(self.possible_transitions(state, char_slice))
+            });
+
+            new_branches.sort();
+            new_branches.dedup();
             branches = new_branches;
         }
         branches.iter().any(|x| self.final_states.contains(x))
@@ -136,10 +97,8 @@ fn main() {
 
     nfa.print();
 
-    println!("Possible transitions from s2 are {:?}", nfa.e_closure("s2"));
-
-    // let input = "aac";
-    // println!("The input {} is accepted? {}", input, nfa.accept(input));
+    let input = "";
+    println!("The input {} is accepted? {}", input, nfa.accept(input));
 }
 
 mod tests {

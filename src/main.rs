@@ -1,16 +1,22 @@
 mod nfa;
-use nfa::Nfa;
+use nfa::{Nfa, Symbol};
 fn main() {
     let nfa = Nfa::new(
         vec!["s0", "s1", "s2"],
-        vec!["0", "1"],
-        vec![("s0", "", vec!["s1"]), ("s1", "", vec!["s2"])],
+        vec![Symbol::Value(0), Symbol::Value(1)],
+        vec![
+            ("s0", Symbol::Epsilon, vec!["s1"]),
+            ("s1", Symbol::Epsilon, vec!["s2"]),
+        ],
         "s0",
         vec!["s2"],
     );
 
     nfa.print();
 
-    let input = "";
-    println!("The input {} is accepted? {}", input, nfa.accept(input));
+    println!(
+        "The input {} is accepted? {}",
+        "",
+        nfa.accept(vec![Symbol::Epsilon])
+    );
 }
